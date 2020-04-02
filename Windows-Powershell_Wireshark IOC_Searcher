@@ -1,0 +1,15 @@
+#Domain and IP filter creator for Wireshark
+
+$domainlocation = Get-Content -Path 'C:\Users\DCI Student\Desktop\domainsioc.txt'
+
+ForEach($domain in $domainlocation){
+Write-Host "http.host == "`"$domain`" "||"
+
+}
+
+$iplocation = Get-Content -Path 'C:\Users\DCI Student\Desktop\ipocs.txt'
+
+ForEach($ip in $iplocation){
+Write-Host "ip.addr == "$ip "||"
+
+}
