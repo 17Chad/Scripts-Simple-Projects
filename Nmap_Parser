@@ -1,0 +1,70 @@
+#!/bin/bash
+
+#Script name= Parse.sh
+#Final output= NmapOutput.txt
+
+###-Establishing my regex for ip and services-###
+nmapfile=$1 
+regexip="Nmap scan report for ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"
+regexservice="([0-9]){2,4}\/(tcp|udp)\s+open\s+(\w+)(-?\w+)(-?\w+)"
+
+###-Making output file and folder-###
+touch NmapOutput.txt
+###-Copying all contents to output file-###
+echo "===============" >> NmapOutput.txt
+echo "Nmap File:"$1 >> NmapOutput.txt
+echo "Service count by IP occurence"
+echo "===============" >> NmapOutput.txt
+printf "\n" >> NmapOutput.txt
+
+mkdir /tmp/NmapParse
+
+###-Read nmap file line by line-###
+while read line; do
+
+	###-Catch ip and store it in variable-###
+	if [[ $line =~ $regexip ]]; then
+		ip=${BASH_REMATCH[1]}		           
+	
+	###-Catch service and store it in variable-###
+	elif [[ $line =~ $regexservice ]]; then
+
+		###-Establishing service name based on regex-###
+		oneword=${BASH_REMATCH[3]}
+		twowords=${BASH_REMATCH[4]}
+		threewords=${BASH_REMATCH[5]}
+		service=$oneword$twowords$threewords
+
+		###-If service category does not exist, make a service category and save to a file-###
+		if ! [ -f "/tmp/NmapParse/$service"  ];then
+			touch /tmp/NmapParse/$service							#create service-specific file
+			echo $service:1 >> /tmp/NmapParse/$service				#set counter to 1
+			echo -e "===============" >> /tmp/NmapParse/$service	#break
+			echo $ip >> /tmp/NmapParse/$service						#append ip from variable
+		
+		###-Else, add ip to list and increase count by 1-###
+		else
+			category=$(grep -E -m 1 "$service:[0-9]+" /tmp/NmapParse/$service | awk -F: '{print $1}')
+			findd=$(grep -E -m 1 "$service:[0-9]+" /tmp/NmapParse/$service | awk -F: '{print $2}')
+			replace=$(($findd + 1))
+			
+			#increase count by 1 in place with sed
+			sed -i "s/${category}:${findd}/${category}:${replace}/g" /tmp/NmapParse/$service
+			
+			###-Add ip to the file, unless it exists in the file already-###
+			if ! ( grep $ip /tmp/NmapParse/$service ); then
+				echo $ip >> /tmp/NmapParse/$service
+			else
+				echo 'Script works' >/dev/null #debugging checker
+			fi
+		fi
+	fi	
+done < $nmapfile #redirect STDIN from whatever file you passed
+
+###-'Unknown' port counter-###
+unkcount=$(wc -l /tmp/NmapParse/unknown | awk -F' ' '{print $1}')					#number of ips in list
+unkcount2=$(($unkcount - 2))														#count minus 2 lines
+unkfind=$(grep -E "unknown:[0-9]+" /tmp/NmapParse/unknown | awk -F: '{print $2}')	#original number
+sed -i "s/unknown:${unkfind}/unknown:${unkcount2}/g" /tmp/NmapParse/unknown			#replace original number
+
+cat /tmp/NmapParse/* >> NmapOutput.txt
