@@ -1,2 +1,1 @@
-# Scripts
-Useful scripts from over the years
+# Scripts and Simple projects 
