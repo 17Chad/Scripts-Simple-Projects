@@ -1,0 +1,50 @@
+32	16	8	4		2	1	X	X DSCP
+128	64	32	16		8	4	2	1 DEC
+8	4	2	1		8	4	2	1 HEX
+X	X	U	A		P	R	S	F TCP Flags
+
+tcpdump <ip,tcp,ether,arp>[start byte:offset] 
+1 byte = 16 bits
+8 bits on = F
+
+Task 1)
+1. Capture all packets with a TTL of 128 or less for both IPv4 and IPv6.
+tcpdump 'ip[8] <=128 or ip6[7] <=128'
+
+2. Capture all ip traffic with the DF bit set.
+tcpdump 'ip[6] & 0xE0=0x040'
+
+3. Capture all packets with the MF ag set and Fragmentation o set result of 31744 / 8. = 3968 or 0x0F80
+tcpdump 'ip[6] & 0xE0=0x020 && ip[6:2] & 0x001FFF=3968'
+
+4. Capture all TCP packets with a destination port equal to or less than 1024.
+tcpdump 'tcp[2:2] <=1024'
+
+5. Capture all/only IPv4 packets.
+tcpdump 'ether[12:2]=0x0800 or (ether[12:1]=0x81 && ether[16:2]=0x08100)'
+
+6. Capture all ipv4 telnet and SSH traffic.
+tcpdump '(tcp[0:2] = 0023 or ip[2:2] = 0022) or (tcp[3] = 22 or tcp[3] = 23)'
+
+7. Capture all TCP packets with only the URG/PUSH/FIN ags set.
+tcpdump tcp[13]=41 or 0x29
+*no mask needed
+
+8. Capture all traffic that contains a VLAN ID of 100.
+tcpdump 'ether[12:4] & 0xFFFF0FFF=0x81000064'
+tcpdump 'ether[14:2] & 0x0FFF=0x0064'
+
+9. Capture all tra c that has an IPv4 address of 192.168.36.10.
+tcpdump 'ip[12:4]=c0a8240a or ip[16:4]=c0a8240a'
+
+10. Capture all tra c that has a DSCP of 38.
+tcpdump 'ip[1]= & 0xFC=0x98'
+
+11. Capture all DNS zone transfers.
+tcpdump 'tcp[1]=53 or tcp[3]=53'
+
+12. Capture all ARP tra c.
+tcpdump ether[12:2]=0x0806
+
+13. Capture all IPv6 next header traffic of EIGRP.
+tcpdump ip6[6]=0x58 or 88 dec 
