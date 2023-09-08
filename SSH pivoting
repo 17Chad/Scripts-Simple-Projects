@@ -1,0 +1,155 @@
+SSH Cheat Sheet
+
+GUI: xfreerdp /v:10.50.20.216 /u:root /p:password /size:1920x1000 + clipboard
+(outbound going to pivot) Local port forward.
+This is done on your computer to access a remote target through a pivot machine. Keep in mind that the (-L 1:2:3) and the (4@5) can be written in reverse order.
+			TARGET 			PIVOT
+me$ - ssh -L _____:_____:_____  -p_____   _____@_____ -NT (no terminal on pivot)
+ 	       		1         2        3            4           5      	6
+   		\_____Grouped_____/   \_____Grouped______/
+
+then on my box:
+firefox URL: localhost:5000
+wget localhost:5000
+
+1 = port that will be created on this local machine that will take me to 2:3 socket.
+2 = ultimate target I am trying to get to that 5@6 can reach. This can be localhost if 5@6 is my ultimate target. This is from the perspective of 5:6 who will be your pivot to get to this target.
+3 = the port on my ultimate target (2) that I want to interact with (i.e. 80, 22, 23, etc).
+4 = this is optional and is specified along with the -p option. This specifies the alternate port to connect to on (6). If (6) is a remote ip address then it specifies the alternate port to connect to (i.e. the alternate sshd port) on that remote host. If (6) is localhost then it specifies the alternate port on the local system to use such as a previously created tunnel to use.
+5 = username authentication to access the pivot that will get me to socket 2:3
+ 
+6 = ip address of my pivot.  (5) will be an authenticated user on this box. This can be localhost if you are using the -p option to go through a previously created tunnel on yourself. 
+
+
+
+
+
+
+(inbound coming to me) Remote port forward.
+This is done on your computer that is acting as the pivot machine (or "insider"). This is to give someone else (on the "outside") access to a resource that "the pivot" (you the "insider") has access to. Keep in mind that the (-R 1:2:3) and the (4@5) can be written in reverse order.
+			
+	TARGET				ME		
+pivot$ - ssh -R _____:_____:_____  -p_____	_____@_____
+       	   		1    	2	    3           4            5     	6
+   		\_____Grouped_____/   \_____Grouped_______/
+
+ssh me@myip -NT -R 22:t ip :t port
+ssh -R 22:t ip: t port me@myip -NT
+
+firefox localhost:5000
+wget localhost:5000
+
+1 = port that will be created on remote box (5@6).
+2 = ultimate target that this box has access to that you want to give 5@6 access to. This can be localhost if you want to give 5@6 access to yourself. This is from the perspective of yourself as being the 'pivot' and what you have access to.
+3 = the service port on 2 that you are wanting to give 5@6 access to.
+4 = this is optional and is specified along with the -p option. This specifies the alternate port to connect to on (6). Typically (6) will be the remote ip where it will create the port (1) on, but if the system is using an alternate sshd port (not 22) then you will need to specify the alternate port in (4).
+5 = username authentication of remote box that you are trying to create the port (1) on.
+6 = ip address of the machine that the username (5) is on that you are wanting to create the port (1) on.
+
+
+
+1234
+me		p1		p2		p3		p4		p5		target
+10.0.0.1	144.1.6.5	192.169.1.1	18.17.16.15	100.11.1.1	201.201.2.1  15.16.17.18: 80
+				sshd:6900					sshd:4444
+
+(tunnel 1) me$ - ssh -L 1234:192.168.1.1:6900 	p1@144.1.6.5 -NT
+*new window
+(tunnel 2) me$ - ssh -L 3284:18.17.16.15:22		p2@localhost -NT -p 1234
+*new window
+(tunnel 3) me$ - ssh -L 5000:100.11.1.1:22		p3@localhost -NT -p 3284
+*new window
+(tunnel 4) me$ - ssh -L 2112:201.201.2.1:4444	p4@localhost -NT -p 5000
+*new window
+(tunnel 5) me$ - ssh -L 9999:15.16.17.18:80		p5@localhost -NT -p 2112
+
+wget localhost:9999
+
+2222
+1111		12345	FIREWALL				5678	FIREWALL
+me		p1		*p2 ->		p3		p4		*p5 ->		target
+10.0.0.1	144.1.6.5	192.169.1.1	18.17.16.15	100.11.1.1	201.201.2.1  15.16.17.18: 80
+								
+
+*p2$ - ssh -R 12345:18.17.16.15:22		p1@144.1.6.5 -NT
+(new window)
+*p5$ - ssh -R 5678:15.16.17.18:80		p4@100.11.1.1 -NT
+(new window)
+me$ - ssh -L 1111:localhost:12345		p1@144.1.6.5 -NT
+(new window)
+me$ - ssh -L 2222:100.111.1.1:5678	-p 1111 p3@localhost -NT
+wget localhost:2222
+
+Dynamic Tunnel 
+*uses proxy chains 9050 default port
+me$ - ssh -D 9050:target:service	-p user@pivot -NT
+me$ - proxychains wget 
+
+
+
+
+10.3.0.10 - Atropia (internal)
+10.50.22.199 - Atropia (externel)
+10.50.22.200 - Jose/Pinelander
+
+Task 1
+Perform the actions our insider, Jose, would take in order to make this possible:
+1. Acting as the "insider", Jose, access the target host via telnet (utilize the "student" SSH credentials). 
+2. Set up a remote port forward to 90XX at the Atropia pivot on the target host in order to host it’s webpage. 
+ssh -R 9004:localhost:80 student4@10.3.0.10 -NT
+ssh -L 12345:localhost:9004 student4@10.50.22.200 -NT
+
+
+
+As the malicious external actor, you need to discover and interact with other services to obtain additional information:
+***ssh -R <- you are the pivot so it is your perspective
+
+1. jose$ - ssh -R 9004:localhost:22 		student4@10.3.0.10 (interor Atropia) -NT
+2. me $ - ssh -L 4545:localhost:9004 	student4@10.50.22.199 (exterior Atropia) -NT
+3. me $ - ssh -L 6666:10.2.0.3:22		student4@localhost -p 4545
+** ssh student4@localhost -p 6666 - atlantica pivot * port 23 telnet is open
+**ssh -L 6666:
+
+3. me $ - ssh -D 9050 -p 6666		student4@localhost -NT
+4. me $ - proxychains ./netscan.sh``
+`
+10.3.0.10 - Atropia (internal)
+10.50.22.199 - Atropia (externel)
+10.50.22.200 - Jose/Pinelander
+
+10.2.0.3 - ssh open - atlantica
+
+1. atropia$ ssh -L 5555:localhost:22 student4@10.4.0.1 -NT
+2. me$ ssh -L 4444:localhost:5555 student4@10.50.22.199 -NT
+3. me$ ssh -D 9050 -p 4444 student4@localhost
+
+1. me$ ssh -L 9898:localhost:22 student4@10.50.22.199 -NT
+2. me$ ssh -D 9050 -p 9898 student4@localhost -NT
+
+
+
+1. telnet into Jose
+2.
+
+
+Which will set up a Remote port forwarder from inside to the internal website using port 9876?
+
+
+***ssh -R 9876:192.168.1.10:80 Outside@147.25.99.1
+
+
+
+Which is the correct syntax of 2nd tunnel to the webserver at 188.8.8.8?
+
+ssh -L 5678:188.8.8.8:80 -p 1234 Bill@localhost -NT
+
+Setup a Remote port forward to access the internal webserver using "Work" as your pivot?
+
+ssh -R 1111:209.0.0.1:80 home@10.0.0.1 -NT
+What command can you use to establish a tunnel that will allow enumeration of the internal NET?
+
+ssh -D 9050 inside@147.25.99.1
+What does the ssh -R 1111:10.0.0.1:80 user@192.168.0.1 command do?
+Remote from local host to 192.168.0.1 with target 10.0.0.1
+
+
